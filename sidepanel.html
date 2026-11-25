@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Browser Agent</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot" id="bridgeDot" title="agy Bridge Status"></span>
+      <span class="title">Browser Agent</span>
+      <span class="badge" id="bridgeLabel">bridge: off</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="badge usage-badge" id="usageBadge" title="Current thread token usage and estimated USD cost">0 tok • $0.00</span>
+      <button id="detachDebugBtn" class="icon-btn" title="Detach Chrome debugger from active tab">🧹</button>
+      <button id="reconnectBtn" class="icon-btn" title="Reconnect agy bridge">↻</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="agent">Agent</button>
+    <button class="tab" data-tab="macros">Macros</button>
+    <button class="tab" data-tab="schedules">Schedules</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+
+  <!-- AGENT VIEW -->
+  <section id="view-agent" class="view active">
+    <div class="thread-bar" id="threadBar">
+      <select id="threadSelect" class="thread-select" title="Switch conversation thread"></select>
+      <button id="newThreadBtn" class="mini-btn" type="button" title="Start new chat thread">+ New</button>
+      <button id="clearThreadBtn" class="mini-btn" type="button" title="Clear current thread">Clear</button>
+      <button id="delThreadBtn" class="mini-btn" type="button" title="Delete current thread">Del</button>
+    </div>
+
+    <div class="tab-attach-bar">
+      <div class="attach-header">
+        <span>Attached Tabs (Multi-Tab Context)</span>
+        <button id="refreshTabsBtn" class="mini-btn">Refresh</button>
+      </div>
+      <div id="tabPills" class="tab-pills"></div>
+    </div>
+
+    <div id="timeline" class="timeline">
+      <div class="empty-state">
+        Ask Browser Agent to navigate, fill forms, extract data, or debug console/network errors.<br /><br />
+        <strong>Tip:</strong> Type <code>/</code> for quick slash templates, or click <strong>Full Shot</strong> for a stitched full-page capture.
+      </div>
+    </div>
+
+    <div id="approvalCard" class="approval-card hidden">
+      <div class="approval-title">Approval Required</div>
+      <div id="approvalReason" class="approval-reason"></div>
+      <div id="approvalDetails" class="approval-details"></div>
+      <div class="approval-actions">
+        <button id="approveBtn" class="btn primary">Approve</button>
+        <button id="denyBtn" class="btn danger">Deny</button>
+      </div>
+    </div>
+
+    <div id="handoffCard" class="handoff-card hidden">
+      <div class="handoff-title">Human Handoff / Take Over</div>
+      <div id="handoffReason" class="approval-reason"></div>
+      <div id="handoffQuestion" class="handoff-question"></div>
+      <input id="handoffNote" class="handoff-note" type="text" placeholder="Optional note to agent after completing step..." />
+      <div class="approval-actions">
+        <button id="handoffResumeBtn" class="btn primary" type="button">Resume Agent</button>
+        <button id="handoffCancelBtn" class="btn danger" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <div id="thinkingIndicator" class="thinking-bar hidden"></div>
+
+    <form id="promptForm" class="composer">
+      <div id="slashMenu" class="slash-menu hidden"></div>
+      <div class="composer-toolbar">
+        <button type="button" id="slashBtn" class="mini-btn" title="Insert slash command template">/ Templates</button>
+        <button type="button" id="fullShotBtn" class="mini-btn" title="Capture full-page stitched screenshot">📷 Full Shot</button>
+        <button type="button" id="stopTtsBtn" class="mini-btn danger-outline hidden" title="Stop speaking">⏹ Stop TTS</button>
+        <label class="auto-read-pill" title="Automatically read final assistant answers aloud">
+          <input id="autoReadQuick" type="checkbox" />
+          <span>🔊 Auto-Read</span>
+        </label>
+      </div>
+      <textarea id="promptInput" rows="2" placeholder="Tell Browser Agent what to do, or type / for templates..."></textarea>
+      <div class="composer-actions">
+        <button type="button" id="stopBtn" class="btn danger hidden">Stop</button>
+        <button type="submit" id="sendBtn" class="btn primary">Run</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- MACROS VIEW -->
+  <section id="view-macros" class="view">
+    <div class="card">
+      <h3>Record Deterministic Macro ($0 Replay)</h3>
+      <label>Macro Name <input id="macroName" type="text" placeholder="e.g., Check daily dashboard" /></label>
+      <div class="row-actions">
+        <button id="recStartBtn" class="btn primary">Start Recording</button>
+        <button id="recStopBtn" class="btn danger hidden">Stop &amp; Save</button>
+        <button id="saveLastRunBtn" class="btn">Save Last Run</button>
+      </div>
+      <div id="recStatus" class="sched-meta">Not recording</div>
+      <label class="checkbox-row">
+        <input id="macroSelfHeal" type="checkbox" checked />
+        <span>Self-heal with LLM if a macro step breaks</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>Export to Playwright / Puppeteer</h3>
+      <div class="input-row">
+        <select id="exportFormat">
+          <option value="playwright">Playwright (.spec.ts)</option>
+          <option value="puppeteer">Puppeteer (.mjs)</option>
+        </select>
+        <button id="exportLastRunBtn" class="btn" type="button">Export Last Run</button>
+      </div>
+      <div id="exportStatus" class="inline-msg"></div>
+      <div id="exportOutputBox" class="export-box hidden">
+        <div class="export-header">
+          <span class="badge" id="exportFilename">workflow.spec.ts</span>
+          <div class="row-actions">
+            <button id="copyExportBtn" class="mini-btn" type="button">Copy</button>
+            <button id="downloadExportBtn" class="mini-btn" type="button">Download</button>
+          </div>
+        </div>
+        <div id="exportEnvNote" class="sched-meta hidden"></div>
+        <textarea id="exportCode" class="export-code" rows="10" readonly></textarea>
+      </div>
+    </div>
+
+    <div id="macroParamsCard" class="card hidden">
+      <h3 id="macroParamsTitle">Macro Parameters</h3>
+      <div id="macroParamsFields" class="schedule-list"></div>
+      <div class="row-actions">
+        <button id="macroParamsRunBtn" class="btn primary" type="button">Run Macro</button>
+        <button id="macroParamsCancelBtn" class="btn" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <div id="macroEditorCard" class="card hidden">
+      <h3>Edit Macro Steps</h3>
+      <label>Macro Name <input id="editMacroName" type="text" /></label>
+      <div id="editMacroSteps" class="schedule-list"></div>
+      <div class="row-actions">
+        <button id="addEditStepBtn" class="mini-btn" type="button">+ Add Step</button>
+        <button id="saveMacroEditBtn" class="btn primary" type="button">Save Changes</button>
+        <button id="cancelMacroEditBtn" class="btn" type="button">Cancel</button>
+      </div>
+      <div id="macroEditStatus" class="inline-msg"></div>
+    </div>
+
+    <div id="macroList" class="schedule-list"></div>
+  </section>
+
+  <!-- SCHEDULES VIEW -->
+  <section id="view-schedules" class="view">
+    <div class="card">
+      <h3>New Scheduled Task</h3>
+      <label>Name <input id="schedName" type="text" placeholder="Daily price check" /></label>
+      <label>Action Type
+        <select id="schedType">
+          <option value="prompt">Run AI Prompt</option>
+          <option value="macro">Replay Saved Macro ($0)</option>
+        </select>
+      </label>
+      <label id="schedPromptRow">Prompt <textarea id="schedPrompt" rows="2" placeholder="Open https://example.com and summarize..."></textarea></label>
+      <label id="schedMacroRow" class="hidden">Macro
+        <select id="schedMacroId"></select>
+      </label>
+      <label>Every (minutes) <input id="schedInterval" type="number" min="1" value="60" /></label>
+      <button id="addSchedBtn" class="btn primary">Add Schedule</button>
+    </div>
+    <div id="scheduleList" class="schedule-list"></div>
+  </section>
+
+  <!-- SETTINGS VIEW -->
+  <section id="view-settings" class="view">
+    <div class="card">
+      <h3>LLM Provider (BYOK / Local)</h3>
+      <label>Provider
+        <select id="cfgProvider">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="gemini">Google (Gemini)</option>
+          <option value="ollama">Ollama (Local / ml-server)</option>
+          <option value="custom">Custom OpenAI-Compatible</option>
+        </select>
+      </label>
+      <label id="cfgBaseUrlRow" class="hidden">Base URL
+        <input id="cfgBaseUrl" type="text" placeholder="http://ml-server.taila13119.ts.net:11434/v1" />
+      </label>
+      <label id="cfgContextRow" class="hidden">Ollama Context Length (tokens)
+        <input id="cfgContextLength" type="number" min="2048" max="131072" step="1024" value="8192" />
+      </label>
+      <label>Model
+        <div class="input-row">
+          <input id="cfgModel" type="text" list="cfgModelsList" placeholder="claude-sonnet-4-20250514" />
+          <button id="fetchModelsBtn" class="mini-btn" type="button">Fetch</button>
+        </div>
+        <datalist id="cfgModelsList"></datalist>
+      </label>
+      <select id="cfgFetchedModels" class="hidden"></select>
+      <div id="fetchModelsStatus" class="inline-msg"></div>
+      <label>API Key <input id="cfgApiKey" type="password" placeholder="sk-..." /></label>
+      <label class="checkbox-row">
+        <input id="cfgIncludeVision" type="checkbox" checked />
+        <span>Send screenshots to model (disable or auto-fallback for text-only local models)</span>
+      </label>
+      <label class="checkbox-row">
+        <input id="cfgStreamResponses" type="checkbox" checked />
+        <span>Stream model responses live</span>
+      </label>
+      <label>Max Steps <input id="cfgMaxSteps" type="number" min="1" max="50" value="20" /></label>
+    </div>
+
+    <div class="card">
+      <h3>Dual-Model Routing</h3>
+      <label class="checkbox-row">
+        <input id="cfgDualRouting" type="checkbox" />
+        <span>Escalate to stronger model on repeated errors, stuck loops, or screenshots</span>
+      </label>
+      <div id="dualRoutingFields" class="hidden">
+        <label>Escalation Provider
+          <select id="cfgEscProvider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Google (Gemini)</option>
+            <option value="ollama">Ollama (Local / ml-server)</option>
+            <option value="custom">Custom OpenAI-Compatible</option>
+          </select>
+        </label>
+        <label id="cfgEscBaseUrlRow" class="hidden">Escalation Base URL
+          <input id="cfgEscBaseUrl" type="text" placeholder="http://ml-server.taila13119.ts.net:11434/v1" />
+        </label>
+        <label>Escalation Model
+          <div class="input-row">
+            <input id="cfgEscModel" type="text" list="cfgEscModelsList" placeholder="gemini-2.5-flash" />
+            <button id="fetchEscModelsBtn" class="mini-btn" type="button">Fetch</button>
+          </div>
+          <datalist id="cfgEscModelsList"></datalist>
+        </label>
+        <select id="cfgEscFetchedModels" class="hidden"></select>
+        <div id="fetchEscModelsStatus" class="inline-msg"></div>
+        <label>Escalation API Key <input id="cfgEscApiKey" type="password" placeholder="Optional if same provider or local" /></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Voice / Read Aloud (TTS)</h3>
+      <label class="checkbox-row">
+        <input id="cfgTtsAutoRead" type="checkbox" />
+        <span>Automatically read final answers aloud</span>
+      </label>
+      <label>TTS Engine
+        <select id="cfgTtsEngine">
+          <option value="api">AIHub API (Kokoro - 127.0.0.1:8091)</option>
+          <option value="macos">macOS Built-in Voices</option>
+        </select>
+      </label>
+      <div id="cfgTtsApiFields">
+        <label>TTS Service URL
+          <div class="input-row">
+            <input id="cfgTtsUrl" type="text" placeholder="http://127.0.0.1:8091" />
+            <button id="testTtsBtn" class="mini-btn" type="button">Test</button>
+          </div>
+        </label>
+        <label>Kokoro Voice
+          <div class="input-row">
+            <input id="cfgTtsVoice" type="text" list="cfgTtsVoicesList" placeholder="af_heart" />
+            <button id="fetchTtsVoicesBtn" class="mini-btn" type="button">Voices</button>
+          </div>
+          <datalist id="cfgTtsVoicesList"></datalist>
+        </label>
+      </div>
+      <div id="cfgTtsMacFields" class="hidden">
+        <label>macOS Voice
+          <div class="input-row">
+            <select id="cfgTtsMacVoice">
+              <option value="">Auto (best available)</option>
+            </select>
+            <button id="refreshMacVoicesBtn" class="mini-btn" type="button">Refresh</button>
+          </div>
+        </label>
+      </div>
+      <label>Speed (<span id="cfgTtsSpeedVal">1.0×</span>)
+        <input id="cfgTtsSpeed" type="range" min="0.5" max="2.0" step="0.1" value="1.0" />
+      </label>
+      <div id="ttsStatus" class="inline-msg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Custom Slash Commands (/cmd)</h3>
+      <div class="sched-meta">Create custom <code>/command</code> shortcuts for recurring prompts (or use <code>macro:Macro Name</code> to trigger a macro).</div>
+      <div id="customSlashList" class="schedule-list"></div>
+      <div class="divider"></div>
+      <label>Command <input id="slashCmdInput" type="text" placeholder="/daily" /></label>
+      <label>Description <input id="slashDescInput" type="text" placeholder="Run my morning dashboard check" /></label>
+      <label>Prompt or macro:Name <textarea id="slashPromptInput" rows="2" placeholder="Open https://... or macro:Daily Check"></textarea></label>
+      <button id="addSlashBtn" class="btn" type="button">+ Add Slash Command</button>
+      <div id="slashStatus" class="inline-msg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Secrets Vault ({{NAME}})</h3>
+      <div class="sched-meta">Stored locally in Chrome. Only placeholder names (e.g. {{GMAIL_PASS}}) are visible to the LLM; values are substituted inside typing tools.</div>
+      <div id="vaultList" class="schedule-list"></div>
+      <div class="divider"></div>
+      <label>Secret Name <input id="vaultName" type="text" placeholder="DEMO_PASSWORD" /></label>
+      <label>Secret Value <input id="vaultValue" type="password" placeholder="Stored locally, never sent to LLM" /></label>
+      <button id="addSecretBtn" class="btn" type="button">+ Add Secret</button>
+      <div id="vaultStatus" class="inline-msg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Safety &amp; Permissions</h3>
+      <label class="checkbox-row">
+        <input id="cfgAutoApprove" type="checkbox" checked />
+        <span>Auto-approve low-risk actions (still pauses on submits, payments, passwords)</span>
+      </label>
+      <label>Domain Allowlist (comma/newline separated, empty = all)
+        <textarea id="cfgAllowlist" rows="2" placeholder="github.com, docs.google.com"></textarea>
+      </label>
+      <label>Domain Blocklist (comma/newline separated)
+        <textarea id="cfgBlocklist" rows="2" placeholder="bank.example.com"></textarea>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>agy Local Bridge</h3>
+      <label class="checkbox-row">
+        <input id="cfgBridgeEnabled" type="checkbox" checked />
+        <span>Enable agy bridge (WebSocket / Native Messaging)</span>
+      </label>
+      <label class="checkbox-row">
+        <input id="cfgNativeBridgeEnabled" type="checkbox" checked />
+        <span>Auto-launch bridge via Native Messaging (no manual terminal)</span>
+      </label>
+      <label>Bridge WebSocket URL <input id="cfgBridgeUrl" type="text" value="ws://127.0.0.1:19222/ws" /></label>
+      <div id="extIdNote" class="sched-meta"></div>
+    </div>
+
+    <button id="saveSettingsBtn" class="btn primary full">Save Settings</button>
+    <div id="saveStatus" class="save-status"></div>
+  </section>
+
+  <!-- SCREENSHOT PREVIEW MODAL -->
+  <div id="imageModal" class="image-modal hidden">
+    <div class="image-modal-card">
+      <img id="imageModalImg" alt="Screenshot preview" />
+      <div class="image-modal-actions">
+        <button id="imageModalDownloadBtn" class="btn primary" type="button">Download</button>
+        <button id="imageModalCloseBtn" class="btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# macOS / OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Generated local native-messaging launchers (created by install-native-host.mjs / setup.mjs)
+bridge/native-host-launcher.sh
+bridge/native-host-launcher.bat
+
+# Dependencies & local state
+node_modules/
+.env
+.env.*
+*.log
+*.crx
+*.pem
+*.zip
